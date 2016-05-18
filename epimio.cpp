@@ -24,82 +24,17 @@
 using namespace cv;
 using namespace cv::xfeatures2d;
 
-
-	template <typename T1, typename T2>
-	static void drawEpipolarLines(const std::string& title, const cv::Matx<T1,3,3> F,
-		        const cv::Mat& img1, const cv::Mat& img2,
-		        const std::vector<cv::Point_<T2> > points1,
-		        const std::vector<cv::Point_<T2> > points2,
-		        const float inlierDistance = -1)
-	{
-	  CV_Assert(img1.size() == img2.size() && img1.type() == img2.type());
-	  cv::Mat outImg(img1.rows, img1.cols*2, CV_8UC3);
-	  cv::Rect rect1(0,0, img1.cols, img1.rows);
-	  cv::Rect rect2(img1.cols, 0, img1.cols, img1.rows);
-	  /*
-	   * Allow color drawing
-	   */
-	  if (img1.type() == CV_8U)
-	  {
-	    cv::cvtColor(img1, outImg(rect1), CV_GRAY2BGR);
-	    cv::cvtColor(img2, outImg(rect2), CV_GRAY2BGR);
-	  }
-	  else
-	  {
-	    img1.copyTo(outImg(rect1));
-	    img2.copyTo(outImg(rect2));
-	  }
-	  std::vector<cv::Vec<T2,3> > epilines1, epilines2;
-	  cv::computeCorrespondEpilines(points1, 1, F, epilines1); //Index starts with 1
-	  cv::computeCorrespondEpilines(points2, 2, F, epilines2);
-	 
-	  CV_Assert(points1.size() == points2.size() &&
-		points2.size() == epilines1.size() &&
-		epilines1.size() == epilines2.size());
-	 
-	  cv::RNG rng(0);
-	  for(size_t i=0; i<points1.size(); i++)
-	  {
-	    if(inlierDistance > 0)
-	    {
-	      if(distancePointLine(points1[i], epilines2[i]) > inlierDistance ||
-		distancePointLine(points2[i], epilines1[i]) > inlierDistance)
-	      {
-		//The point match is no inlier
-		continue;
-	      }
-	    }
-	    /*
-	     * Epipolar lines of the 1st point set are drawn in the 2nd image and vice-versa
-	     */
-	    cv::Scalar color(rng(256),rng(256),rng(256));
-	 
-	    cv::line(outImg(rect2),
-	      cv::Point(0,-epilines1[i][2]/epilines1[i][1]),
-	      cv::Point(img1.cols,-(epilines1[i][2]+epilines1[i][0]*img1.cols)/epilines1[i][1]),
-	      color);
-	    cv::circle(outImg(rect1), points1[i], 3, color, -1, CV_AA);
-	 
-	    cv::line(outImg(rect1),
-	      cv::Point(0,-epilines2[i][2]/epilines2[i][1]),
-	      cv::Point(img2.cols,-(epilines2[i][2]+epilines2[i][0]*img2.cols)/epilines2[i][1]),
-	      color);
-	    cv::circle(outImg(rect2), points2[i], 3, color, -1, CV_AA);
-	  }
-	  cv::imshow(title, outImg);
-	  cv::waitKey(1);
-
-
-	}
-	 
-	
-
+ static float distancePointLine(const cv::Point_<double> point, const cv::Vec<double,3>& line);
+//template <typename T1, typename T2>
 int main( int argc, char** argv )
 {
+
+	
+	
 //------------------------------------------------Cargamos las imagenes--------------------------
 
-// img1 = cv2.imread('myleft.jpg',0)  #queryimage # left image
-//img2 = cv2.imread('myright.jpg',0) #trainimage # right image
+// img_1 = cv2.imread('myleft.jpg',0)  #queryimage # left image
+//img_2 = cv2.imread('myright.jpg',0) #trainimage # right image
 
 	Mat img_1 = imread( argv[1], 1 );
   	Mat img_2 = imread( argv[1], 1 );
@@ -127,8 +62,8 @@ Parameters:
 	/*sift = cv2.SIFT()
 
 	find the keypoints and descriptors with SIFT
-	kp1, des1 = sift.detectAndCompute(img1,None)
-	kp2, des2 = sift.detectAndCompute(img2,None)
+	kp1, des1 = sift.detectAndCompute(img_1,None)
+	kp2, des2 = sift.detectAndCompute(img_2,None)
     */
 
 	std::vector<KeyPoint> keypoints_1, keypoints_2;
@@ -152,7 +87,7 @@ Parameters:
 
 	std::vector< DMatch > matches;
 	//std::vector<vector<DMatch > > matches;
-	matcher.knnMatchImpl(descriptors_1,matches,2);
+	//matcher.knnMatchImpl(descriptors_1,matches,2);
 	//matcher.knnMatch(descriptors_1,descriptors_2,matches,2);
 	matcher.match( descriptors_1, descriptors_2, matches );
 	
@@ -221,37 +156,106 @@ where F is a fundamental matrix, p1 and p2 are corresponding points in the first
 /*# We select only inlier points
      pts1 = pts1[mask.ravel()==1]
      pts2 = pts2[mask.ravel()==1]         pts1.append(kp1[m.queryIdx].pt)
-def drawlines(img1,img2,lines,pts1,pts2):
-      ''' img1 - image on which we draw the epilines for the points in img2
+def drawlines(img_1,img_2,lines,pts1,pts2):
+      ''' img_1 - image on which we draw the epilines for the points in img_2
              lines - corresponding epilines '''
-     r,c = img1.shape
-         img1 = cv2.cvtColor(img1,cv2.COLOR_GRAY2BGR)
-         img2 = cv2.cvtColor(img2,cv2.COLOR_GRAY2BGR)
+     r,c = img_1.shape
+         img_1 = cv2.cvtColor(img_1,cv2.COLOR_GRAY2BGR)
+         img_2 = cv2.cvtColor(img_2,cv2.COLOR_GRAY2BGR)
          for r,pt1,pt2 in zip(lines,pts1,pts2):
              color = tuple(np.random.randint(0,255,3).tolist())
              x0,y0 = map(int, [0, -r[2]/r[1] ])
             x1,y1 = map(int, [c, -(r[2]+r[0]*c)/r[1] ])
-          img1 = cv2.line(img1, (x0,y0), (x1,y1), color,1)
-            img1 = cv2.circle(img1,tuple(pt1),5,color,-1)
-           img2 = cv2.circle(img2,tuple(pt2),5,color,-1)
-        return img1,img2
+          img_1 = cv2.line(img_1, (x0,y0), (x1,y1), color,1)
+            img_1 = cv2.circle(img_1,tuple(pt1),5,color,-1)
+           img_2 = cv2.circle(img_2,tuple(pt2),5,color,-1)
+        return img_1,img_2
 
 # drawing its lines on left image
      lines1 = cv2.computeCorrespondEpilines(pts2.reshape(-1,1,2), 2,F)
      lines1 = lines1.reshape(-1,3)
-     img5,img6 = drawlines(img1,img2,lines1,pts1,pts2)
+     img5,img6 = drawlines(img_1,img_2,lines1,pts1,pts2)
      
      # Find epilines corresponding to points in left image (first image) and
      # drawing its lines on right image
      lines2 = cv2.computeCorrespondEpilines(pts1.reshape(-1,1,2), 1,F)
     lines2 = lines2.reshape(-1,3)
-    img3,img4 = drawlines(img2,img1,lines2,pts2,pts1)
+    img3,img4 = drawlines(img_2,img_1,lines2,pts2,pts1)
     }
 */
+	//const std::string title;
 
-	drawEpipolarLines("lineas epipolares", fundamental_matrix, img_1, img_2,obj,scene,-1); //Creo que esta fncion sustituye al codigo restante de python
+	//drawEpipolarLines( title, fundamental_matrix, img_1, img_2,obj,scene,-1); //Creo que esta fncion sustituye al codigo restante de python
+	const float inlierDistance = -1;
+ 	CV_Assert(img_1.size() == img_2.size() && img_1.type() == img_2.type());
+	  cv::Mat outImg(img_1.rows, img_1.cols*2, CV_8UC3);
+	  cv::Rect rect1(0,0, img_1.cols, img_1.rows);
+	  cv::Rect rect2(img_1.cols, 0, img_1.cols, img_1.rows);
+	  /*
+	   * Allow color drawing
+	   */
+	  if (img_1.type() == CV_8U)
+	  {
+	    cv::cvtColor(img_1, outImg(rect1), CV_GRAY2BGR);
+	    cv::cvtColor(img_2, outImg(rect2), CV_GRAY2BGR);
+	  }
+	  else
+	  {
+	    img_1.copyTo(outImg(rect1));
+	    img_2.copyTo(outImg(rect2));
+	  }
+	  std::vector<cv::Vec<double,3> > epilines1, epilines2;
+	  cv::computeCorrespondEpilines(obj, 1, fundamental_matrix, epilines1); //Index starts with 1
+	  cv::computeCorrespondEpilines(scene, 2,fundamental_matrix, epilines2);
+	 
+	  CV_Assert(obj.size() == scene.size() &&
+		scene.size() == epilines1.size() &&
+		epilines1.size() == epilines2.size());
+	 
+	  cv::RNG rng(0);
+	  for(size_t i=0; i<obj.size(); i++)
+	  {
+	    if(inlierDistance > 0)
+	    {
+	      if(distancePointLine(obj[i], epilines2[i]) > inlierDistance ||
+		distancePointLine(scene[i], epilines1[i]) > inlierDistance)
+	      {
+		//The point match is no inlier
+		continue;
+	      }
+	    }
+	    /*
+	     * Epipolar lines of the 1st point set are drawn in the 2nd image and vice-versa
+	     */
+	    cv::Scalar color(rng(256),rng(256),rng(256));
+	 
+	    cv::line(outImg(rect2),
+	      cv::Point(0,-epilines1[i][2]/epilines1[i][1]),
+	      cv::Point(img_1.cols,-(epilines1[i][2]+epilines1[i][0]*img_1.cols)/epilines1[i][1]),
+	      color);
+	    cv::circle(outImg(rect1), obj[i], 3, color, -1, CV_AA);
+	 
+	    cv::line(outImg(rect1),
+	      cv::Point(0,-epilines2[i][2]/epilines2[i][1]),
+	      cv::Point(img_2.cols,-(epilines2[i][2]+epilines2[i][0]*img_2.cols)/epilines2[i][1]),
+	      color);
+	    cv::circle(outImg(rect2),scene[i], 3, color, -1, CV_AA);
+	  }
+	  cv::imshow("title", outImg);
+	  cv::waitKey(1);
+
  waitKey(0);
 return 0 ;
 
 }
+
+
+ static float distancePointLine(const cv::Point_<double> point, const cv::Vec<double,3>& line)
+{
+  //Line is given as a*x + b*y + c = 0
+  return fabsf(line(0)*point.x + line(1)*point.y + line(2))
+      / std::sqrt(line(0)*line(0)+line(1)*line(1));
+
+}
+
 
