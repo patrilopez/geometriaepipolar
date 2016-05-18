@@ -112,8 +112,10 @@ Parameters:
 
 //Una vez tengo los puntos buenos los emparejo
 
-	std::vector<Point2f> obj; //esto seria pts1
-	std::vector<Point2f> scene;//esto pts2
+	//std::vector<Point2f> obj; //esto seria pts1
+	//std::vector<Point2f> scene;//esto pts2
+	std::vector<cv::Point2d> obj;
+	std::vector<cv::Point2d> scene;
 
 	for(int i = 0; i < good_matches.size(); i++)
 	{
@@ -257,5 +259,4 @@ return 0 ;
       / std::sqrt(line(0)*line(0)+line(1)*line(1));
 
 }
-
 
